@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, Link } from "react-router-dom"
 
 function Login(){
 
@@ -53,13 +53,15 @@ alert("Server error")
 
 return(
 
-<div className="flex flex-col gap-3 p-10 bg-gray-100 dark:bg-gray-900 min-h-screen">
+<div className="flex flex-col gap-3 p-10 bg-gray-100 dark:bg-gray-900 min-h-screen items-center justify-center">
 
-<h2 className="text-xl font-bold text-black dark:text-white">Login</h2>
+<div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-md">
+
+<h2 className="text-2xl font-bold text-black dark:text-white mb-6 text-center">Login</h2>
 
 <input
 placeholder="Email"
-className="border p-2 dark:bg-gray-800 dark:text-white dark:border-gray-600"
+className="border p-3 w-full mb-4 rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
 value={email}
 onChange={(e)=>setEmail(e.target.value)}
 />
@@ -67,17 +69,29 @@ onChange={(e)=>setEmail(e.target.value)}
 <input
 type="password"
 placeholder="Password"
-className="border p-2 dark:bg-gray-800 dark:text-white dark:border-gray-600"
+className="border p-3 w-full mb-6 rounded dark:bg-gray-700 dark:text-white dark:border-gray-600"
 value={password}
 onChange={(e)=>setPassword(e.target.value)}
 />
 
 <button
 onClick={login}
-className="bg-green-500 text-white p-2"
+className="bg-green-500 text-white p-3 w-full rounded-lg font-bold hover:bg-green-600"
 >
 Login
 </button>
+
+<p className="text-center mt-4 text-gray-600 dark:text-gray-400">
+Don't have an account?{" "}
+<Link to="/signup" className="text-blue-500 hover:underline">Signup</Link>
+</p>
+
+<p className="text-center mt-2 text-gray-600 dark:text-gray-400">
+Or use combined page:{" "}
+<Link to="/login/signup" className="text-purple-500 hover:underline">Login/Signup</Link>
+</p>
+
+</div>
 
 </div>
 

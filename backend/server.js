@@ -5,7 +5,7 @@ const cors = require("cors")
 const bcrypt = require("bcryptjs")
 const jwt = require("jsonwebtoken")
 const Groq = require("groq-sdk")
-const db = require("./database")
+const db = require("./db")
 
 const app = express()
 
@@ -14,10 +14,13 @@ app.use(express.json())
 
 const SECRET = "expense_secret_key"
 
-// Initialize Groq
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY
-})
+// Initialize Groq - API key is optional
+let groq = null;
+if (process.env.GROQ_API_KEY) {
+  groq = new Groq({
+    apiKey: process.env.GROQ_API_KEY
+  });
+}
 
 /* ===========================
    USER SIGNUP
@@ -91,7 +94,7 @@ app.post("/api/login", async (req, res) => {
 
 app.post("/api/expenses", (req, res) => {
 
-  const { user_id, amount, currency, category, description, date } = req.body
+  const { user_id, amount, currency, category, description, date, payment_method } = req.body
 
   try {
 
@@ -105,10 +108,10 @@ app.post("/api/expenses", (req, res) => {
       db.prepare("INSERT INTO categories(name) VALUES(?)")
       .run(category)
     }
-
+console.log("Saving expense:", user_id, amount, category, description, payment_method)
     const stmt = db.prepare(`
-      INSERT INTO expenses(user_id,amount,currency,category,description,date)
-      VALUES (?,?,?,?,?,?)
+      INSERT INTO expenses(user_id,amount,currency,category,description,date,payment_method)
+      VALUES (?,?,?,?,?,?,?)
     `)
 
     const result = stmt.run(
@@ -117,7 +120,8 @@ app.post("/api/expenses", (req, res) => {
       currency,
       category,
       description,
-      date
+      date,
+      payment_method
     )
 
     res.json({
@@ -202,6 +206,31 @@ app.get("/api/categories", (req, res) => {
   res.json(rows);
 });
 
+// seed default categories (run once)
+app.post("/api/seed-categories", (req, res) => {
+  const defaultCategories = [
+    "Food",
+    "Transport",
+    "Shopping",
+    "Groceries",
+    "Entertainment",
+    "Health",
+    "Bills",
+    "Education",
+    "Travel",
+    "General"
+  ];
+  
+  defaultCategories.forEach(cat => {
+    const existing = db.prepare("SELECT id FROM categories WHERE name=?").get(cat);
+    if (!existing) {
+      db.prepare("INSERT INTO categories(name) VALUES(?)").run(cat);
+    }
+  });
+  
+  res.json({ message: "Categories seeded successfully" });
+});
+
 // fetch budgets for a given user
 app.get("/api/budgets/:user_id", (req, res) => {
   const { user_id } = req.params;
@@ -232,21 +261,20 @@ app.delete("/api/delete-expense/:id", (req, res) => {
 
 const id = req.params.id;
 
-db.run(
-"DELETE FROM expenses WHERE id = ?",
-[id],
-function(err){
+try{
 
-if(err){
+const info = db.prepare(
+"DELETE FROM expenses WHERE id = ?"
+).run(id)
+
+res.json({success: info.changes > 0})
+
+}catch(err){
+
+console.log(err)
 res.json({success:false})
-return
-}
-
-res.json({success:true})
 
 }
-
-)
 
 });
 /* ===========================
@@ -295,6 +323,11 @@ app.get("/api/recurring-expenses/:user_id", (req, res) => {
 app.post("/api/chatbot", async (req, res) => {
 
   const { message, user_id } = req.body;
+
+  // Check if Groq is configured
+  if (!groq) {
+    return res.json({ reply: "AI chatbot is not configured. Please add GROQ_API_KEY to your .env file to enable this feature." });
+  }
 
   try {
 
@@ -431,18 +464,18 @@ if (Array.isArray(result)) {
 
       const amount = item.amount || 0
       const description = item.description || category
-
+    
       db.prepare(`
-        INSERT INTO expenses(user_id,amount,currency,category,description,date)
+INSERT INTO expenses(user_id,amount,currency,category,description,date)
 VALUES (?,?,?,?,?,?)
-      `).run(
-        user_id,
-        amount,
-        category,
-        description,
-        new Date().toISOString().split("T")[0]
-      )
-
+`).run(
+  user_id,
+  amount,
+  "₹",
+  category,
+  description,
+  new Date().toISOString().split("T")[0]
+)
       created++
     }
 
@@ -525,8 +558,8 @@ return res.json({ reply: "No expenses found for that category." });
       const description = result.description || category;
 
       db.prepare(`
-        INSERT INTO expenses(user_id,amount,category,description,date)
-        VALUES (?,?,?,?,?)
+        INSERT INTO expenses(user_id,amount,currency,category,description,date)
+        VALUES (?,?,?,?,?,?)
       `).run(
   user_id,
   amount,

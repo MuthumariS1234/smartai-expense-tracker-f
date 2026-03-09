@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 
@@ -19,46 +18,63 @@ const [recurring, setRecurring] = useState([])
 const navigate = useNavigate()
 
 // LOAD EXPENSES
-const loadExpenses = () => {
+const loadExpenses = async () => {
+
+try{
 
 const user_id = localStorage.getItem("user_id")
 
-if (!user_id) {
+if(!user_id){
 navigate("/login")
 return
 }
 
-fetch("http://localhost:5000/api/expenses/" + user_id)
-.then(res => res.json())
-.then(data => {
+const res = await fetch("http://localhost:5000/api/expenses/" + user_id)
 
-if (Array.isArray(data)) {
+if(!res.ok){
+throw new Error("Failed to load expenses")
+}
+
+const data = await res.json()
+
+console.log("Expenses loaded:",data)
+
+if(Array.isArray(data)){
 setExpenses(data)
-} else {
+}else{
 setExpenses([])
 }
 
-})
+// load recurring safely
+try{
+const recRes = await fetch("http://localhost:5000/api/recurring-expenses/" + user_id)
+const recData = await recRes.json()
 
-.catch(err => console.log(err))
+if(Array.isArray(recData)){
+setRecurring(recData)
+}else{
+setRecurring([])
+}
+}catch{
+setRecurring([])
+}
 
-// LOAD RECURRING EXPENSES
-fetch("http://localhost:5000/api/recurring-expenses/" + user_id)
-.then(res => res.json())
-.then(data => setRecurring(data))
-.catch(err => console.log(err))
+}catch(err){
+console.log("Error loading expenses:",err)
+setExpenses([])
+}
 
 }
 
-useEffect(() => {
+useEffect(()=>{
 loadExpenses()
-}, [])
-
+},[])
 
 // CALCULATE TOTAL
-const totalExpenses = Array.isArray(expenses)
-? expenses.reduce((sum, item) => sum + Number(item.amount), 0)
-: 0
+const totalExpenses = expenses.reduce(
+(sum,item)=> sum + Number(item.amount || 0),
+0
+)
 
 const dashboardData = {
 balance: 50000 - totalExpenses,
@@ -66,94 +82,68 @@ expenses: totalExpenses,
 budget: 50000
 }
 
-
 // EXPORT PDF
 const exportPDF = () => {
 
-try{
-
-if(!expenses || expenses.length === 0){
-alert("No expenses to export!")
+if(!expenses.length){
+alert("No expenses to export")
 return
 }
 
 const doc = new jsPDF()
 
-doc.setFontSize(18)
 doc.text("Expense Report",14,15)
 
-const tableColumn = ["Category","Amount","Date","Description"]
+const columns = ["Category","Amount","Date","Description"]
 
-const tableRows = expenses.map(exp => [
+const rows = expenses.map(exp=>[
 exp.category || "",
-"₹" + (exp.amount || "0"),
+"₹"+exp.amount,
 exp.date || "",
 exp.description || ""
 ])
 
 autoTable(doc,{
-head:[tableColumn],
-body:tableRows,
-startY:25,
-theme:"grid"
+head:[columns],
+body:rows,
+startY:25
 })
 
 doc.save("expense-report.pdf")
 
-}catch(error){
-console.log(error)
-alert("PDF export failed")
 }
-
-}
-
 
 // EXPORT CSV
 const exportCSV = () => {
 
-try{
-
-if(!expenses || expenses.length === 0){
-alert("No expenses to export!")
+if(!expenses.length){
+alert("No expenses to export")
 return
 }
 
 const headers = ["Category","Amount","Date","Description"]
 
-const rows = expenses.map(exp =>
-[
-`"${exp.category || ""}"`,
-exp.amount || "0",
-exp.date || "",
-`"${exp.description || ""}"`
-].join(",")
+const rows = expenses.map(exp=>
+[exp.category,exp.amount,exp.date,exp.description].join(",")
 )
 
-const csvContent = [headers.join(","),...rows].join("\n")
+const csv = [headers.join(","),...rows].join("\n")
 
-const blob = new Blob([csvContent],{type:"text/csv;charset=utf-8;"})
+const blob = new Blob([csv],{type:"text/csv;charset=utf-8;"})
 
 const link = document.createElement("a")
-
 const url = URL.createObjectURL(blob)
 
 link.href = url
 link.download = "expense-report.csv"
-link.style.visibility = "hidden"
 
 document.body.appendChild(link)
 link.click()
-
 document.body.removeChild(link)
+
 URL.revokeObjectURL(url)
 
-}catch(error){
-console.log(error)
-alert("CSV export failed")
 }
-
-}
-
 
 return (
 
@@ -165,33 +155,30 @@ return (
 
 <Navbar/>
 
-
-{/* EXPORT BUTTONS */}
 <div className="flex gap-3 mb-6">
 
 <button
 onClick={exportPDF}
-className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg shadow"
+className="bg-blue-500 text-white px-4 py-2 rounded-lg"
 >
 📄 Export PDF
 </button>
 
 <button
 onClick={exportCSV}
-className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg shadow"
+className="bg-green-500 text-white px-4 py-2 rounded-lg"
 >
 📊 Export CSV
 </button>
 
 </div>
 
-
 <Budget expenses={expenses}/>
 
 <Cards data={dashboardData}/>
 
+{/* RECURRING */}
 
-{/* RECURRING EXPENSES CARD */}
 <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow mb-6">
 
 <h3 className="text-lg font-bold mb-3">
@@ -208,18 +195,14 @@ No recurring expenses detected
 
 recurring.map((item,index)=>(
 <div key={index} className="flex justify-between border-b py-2">
-
 <span>{item.category}</span>
-
 <span>₹{item.amount}</span>
-
 </div>
 ))
 
 )}
 
 </div>
-
 
 <ExpenseForm onExpenseAdded={loadExpenses}/>
 

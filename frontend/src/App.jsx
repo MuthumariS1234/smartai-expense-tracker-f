@@ -8,6 +8,7 @@ import Analytics from "./pages/Analytics";
 import Transactions from "./pages/Transactions";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import LoginSignup from "./pages/LoginSignup";
 import Chatbot from "./pages/Chatbot";
 
 function App() {
@@ -20,6 +21,8 @@ return (
   <Route path="/login" element={<Login />} />
 
   <Route path="/signup" element={<Signup />} />
+
+  <Route path="/login/signup" element={<LoginSignup />} />
 
   {/* Layout Routes */}
   <Route

@@ -5,14 +5,53 @@ function Budget({ expenses }){
 const [budgets,setBudgets] = useState([])
 const [amount,setAmount] = useState("")
 const [category,setCategory] = useState("")
+const [categories,setCategories] = useState([])
+
+// Fallback categories if API fails
+const defaultCategories = [
+  { id: 1, name: "Food" },
+  { id: 2, name: "Transport" },
+  { id: 3, name: "Shopping" },
+  { id: 4, name: "Groceries" },
+  { id: 5, name: "Entertainment" },
+  { id: 6, name: "Health" },
+  { id: 7, name: "Bills" },
+  { id: 8, name: "Education" },
+  { id: 9, name: "Travel" },
+  { id: 10, name: "General" }
+]
 
 const user_id = localStorage.getItem("user_id")
 
 useEffect(()=>{
 
+// Fetch categories from API
+fetch("http://localhost:5000/api/categories?t=" + Date.now())
+.then(res=>res.json())
+.then(data=>{
+  if(Array.isArray(data) && data.length > 0){
+    setCategories(data)
+  } else {
+    setCategories(defaultCategories)
+  }
+})
+.catch(err=>{
+  console.log(err)
+  setCategories(defaultCategories)
+})
+
+if(!user_id) return;
+
 fetch("http://localhost:5000/api/budgets/"+user_id)
 .then(res=>res.json())
-.then(data=>setBudgets(data))
+.then(data=>{
+  if(Array.isArray(data)){
+    setBudgets(data)
+  } else {
+    setBudgets([])
+  }
+})
+.catch(()=>setBudgets([]))
 
 },[])
 
@@ -63,13 +102,15 @@ return(
 <select
 className="border p-2 dark:bg-gray-700 dark:text-white dark:border-gray-600 rounded"
 onChange={(e)=>setCategory(e.target.value)}
+value={category}
 >
+<option value="">Select Category</option>
 
-<option>Food</option>
-<option>Travel</option>
-<option>Shopping</option>
-<option>Bills</option>
-<option>Entertainment</option>
+{categories.map(c=>(
+<option key={c.id} value={c.name}>
+{c.name}
+</option>
+))}
 
 </select>
 

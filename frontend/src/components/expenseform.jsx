@@ -10,13 +10,43 @@ const [description,setDescription] = useState("")
 const [payment,setPayment] = useState("")
 const [categories,setCategories] = useState([])
 
+// Fallback categories if API fails
+const defaultCategories = [
+  { id: 1, name: "Food" },
+  { id: 2, name: "Transport" },
+  { id: 3, name: "Shopping" },
+  { id: 4, name: "Groceries" },
+  { id: 5, name: "Entertainment" },
+  { id: 6, name: "Health" },
+  { id: 7, name: "Bills" },
+  { id: 8, name: "Education" },
+  { id: 9, name: "Travel" },
+  { id: 10, name: "General" }
+]
+
 const user_id = localStorage.getItem("user_id")
 
 useEffect(()=>{
 
-fetch("http://localhost:5000/api/categories")
-.then(res=>res.json())
-.then(data=>setCategories(data))
+// Fetch categories from API with cache busting
+fetch("http://localhost:5000/api/categories?t=" + Date.now())
+.then(res => {
+  console.log("API Response status:", res.status)
+  return res.json()
+})
+.then(data=>{
+  console.log("Categories fetched:", data, "Array.isArray:", Array.isArray(data))
+  if(Array.isArray(data) && data.length > 0){
+    setCategories(data)
+  } else {
+    console.log("Using fallback categories")
+    setCategories(defaultCategories)
+  }
+})
+.catch(err=>{
+  console.log("Category fetch error:", err)
+  setCategories(defaultCategories)
+})
 
 },[])
 
@@ -33,7 +63,9 @@ category === "other"
 ? customCategory
 : category
 
-await fetch("http://localhost:5000/api/expenses",{
+try{
+
+const res = await fetch("http://localhost:5000/api/expenses",{
 
 method:"POST",
 
@@ -53,6 +85,10 @@ payment_method:payment
 
 })
 
+const data = await res.json()
+
+console.log("Server response:",data)
+
 alert("Expense Added")
 
 setAmount("")
@@ -62,8 +98,18 @@ setCustomCategory("")
 setDescription("")
 setPayment("")
 
+// refresh homepage data
 if(onExpenseAdded){
+setTimeout(()=>{
 onExpenseAdded()
+},200)
+}
+
+}catch(error){
+
+console.log(error)
+alert("Failed to add expense")
+
 }
 
 }
@@ -109,9 +155,11 @@ onChange={(e)=>setCategory(e.target.value)}
 <option value="">Select Category</option>
 
 {categories.map(c=>(
+
 <option key={c.id} value={c.name}>
 {c.name}
 </option>
+
 ))}
 
 <option value="other">Other</option>
@@ -159,7 +207,7 @@ onChange={(e)=>setDescription(e.target.value)}
 
 <button
 onClick={addExpense}
-className="bg-indigo-600 text-white px-4 rounded"
+className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700"
 >
 Add Expense
 </button>

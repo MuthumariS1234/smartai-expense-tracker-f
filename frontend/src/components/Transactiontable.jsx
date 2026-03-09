@@ -4,30 +4,15 @@ import autoTable from "jspdf-autotable"
 
 function Transactiontable({ expenses: propExpenses }) {
 
-const [expenses, setExpenses] = useState(propExpenses || [])
-const user_id = localStorage.getItem("user_id")
+const [expenses, setExpenses] = useState([])
 
 useEffect(() => {
 
-if (!propExpenses) {
-
-fetch("http://localhost:5000/api/expenses/" + user_id)
-.then(res => res.json())
-.then(data => {
-
-if(Array.isArray(data)){
-setExpenses(data)
-}else{
-setExpenses([])
-}
-
-})
-
-}else{
+if(Array.isArray(propExpenses)){
 setExpenses(propExpenses)
 }
 
-},[user_id,propExpenses])
+},[propExpenses])
 
 // DELETE
 const handleDelete = (id) => {
@@ -94,10 +79,10 @@ doc.text("Transactions Report",14,15)
 const tableColumn = ["Category","Amount","Date","Description"]
 
 const tableRows = expenses.map(exp=>[
-exp.category,
+exp.category || "-",
 "₹"+exp.amount,
-exp.date,
-exp.description
+exp.date || "-",
+exp.description || "-"
 ])
 
 autoTable(doc,{
@@ -121,7 +106,12 @@ return
 const headers = ["Category","Amount","Date","Description"]
 
 const rows = expenses.map(exp =>
-[exp.category,exp.amount,exp.date,exp.description].join(",")
+[
+exp.category || "-",
+exp.amount || "0",
+exp.date || "-",
+exp.description || "-"
+].join(",")
 )
 
 const csvContent = [headers.join(","),...rows].join("\n")
@@ -204,8 +194,8 @@ No transactions found
 <tr key={e.id} className="border-b">
 
 <td className="p-3">{e.date}</td>
-<td className="p-3">{e.category}</td>
-<td className="p-3">{e.description}</td>
+<td className="p-3">{e.category || "-"}</td>
+<td className="p-3">{e.description || "-"}</td>
 <td className="p-3">₹{e.amount}</td>
 
 <td className="p-3 space-x-2">
